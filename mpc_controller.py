@@ -120,7 +120,7 @@ class MPController:
         self.nu = 2
         
     def linearize_dynamics(self, state_nominal: np.ndarray,
-                          control_nominal: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+                          control_nominal: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Linearize dynamics around nominal trajectory
         
@@ -129,14 +129,18 @@ class MPController:
             control_nominal: Nominal control
             
         Returns:
-            A, B matrices for linearized system: x_{k+1} = A*x_k + B*u_k
+            A, B, c matrices for linearized system: x_{k+1} = A*x_k + B*u_k + c
         """
         # Handle both 4-state and 5-state models
-        if len(state_nominal) == 5:
-            x, y, theta, v, delta = state_nominal
-        else:
+        if len(state_nominal) == 4:
             x, y, theta, v = state_nominal
             delta = 0.0
+            # Extend to 5-state for computation
+            state_full = np.array([x, y, theta, v, delta])
+        else:
+            x, y, theta, v, delta = state_nominal
+            state_full = state_nominal
+            
         dt = self.config.dt
         L = self.dynamics.L
         
@@ -161,8 +165,8 @@ class MPController:
             [0, dt]
         ])
         
-        # Affine term
-        c = state_nominal - A @ state_nominal
+        # Affine term: c = x_nominal - A @ x_nominal (using full 5-state)
+        c = state_full - A @ state_full
         
         return A, B, c
     
@@ -430,8 +434,8 @@ class PathFollowingController:
         if not path_segments:
             return 0.0, 0.0
         
-        # Go to first segment endpoint
-        target = path_segments[0].end
+        # Go to first segment endpoint (use only x,y coordinates)
+        target = path_segments[0].end[:2]  # Extract x,y from [x, y, z] or [x, y]
         current_pos = self.current_state[:2]
         
         # Vector to target

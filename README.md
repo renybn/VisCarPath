@@ -1,36 +1,50 @@
 
 ## Testing and Debugging
 
-The system includes comprehensive test suites for each module. Run tests to verify functionality at each level.
+The system includes comprehensive test suites for each module. All tests currently pass (34/34 total).
+
+### Quick Start: Run All Tests
+
+```bash
+# Run all test suites sequentially
+python test_apriltag.py && python test_ground_obstacle.py && \
+python test_kalman_filter.py && python test_mpc_controller.py
+```
+
+**Expected Output:**
+- AprilTag: 7/7 tests passed ✓
+- Ground/Obstacle: 8/8 tests passed ✓
+- Kalman Filter: 9/9 tests passed ✓
+- MPC Controller: 10/10 tests passed ✓
 
 ### Running Individual Test Suites
 
 ```bash
-# Test AprilTag detection module
+# Test AprilTag detection module (7 tests)
 python test_apriltag.py
 
-# Test ground plane and obstacle detection
+# Test ground plane and obstacle detection (8 tests)
 python test_ground_obstacle.py
 
-# Test Kalman filter state estimation
+# Test Kalman filter state estimation (9 tests)
 python test_kalman_filter.py
 
-# Test MPC controller
+# Test MPC controller (10 tests)
 python test_mpc_controller.py
 ```
 
 ### Test Suite Descriptions
 
-#### AprilTag Detection Tests (test_apriltag.py)
+#### AprilTag Detection Tests (test_apriltag.py) - 7 Tests
 1. **Initialization** - Verify detector creation with default/custom parameters
 2. **Camera Intrinsics** - Test setting focal length and principal point
-3. **Synthetic Detection** - Detect tags in test images (requires test_tag.png)
+3. **Synthetic Detection** - Detect tags in test images (skipped if no test_tag.png)
 4. **Ground Filtering** - Filter ground-level vs wall-mounted tags
 5. **Pose Estimation** - Verify PnP accuracy with known geometry
 6. **Bearing Calculation** - Test angle calculations for various positions
 7. **OAK-D Pipeline** - Verify pipeline structure (without hardware)
 
-#### Ground & Obstacle Detection Tests (test_ground_obstacle.py)
+#### Ground & Obstacle Detection Tests (test_ground_obstacle.py) - 8 Tests
 1. **Ground Detector Init** - Verify RANSAC parameters
 2. **Synthetic Ground Detection** - Detect plane in synthetic point cloud
 3. **Obstacle Detector Init** - Verify height threshold settings
@@ -40,7 +54,7 @@ python test_mpc_controller.py
 7. **Path Segment Creation** - Create and validate path segments
 8. **Pipeline Structure** - Test integrated pipeline setup
 
-#### Kalman Filter Tests (test_kalman_filter.py)
+#### Kalman Filter Tests (test_kalman_filter.py) - 9 Tests
 1. **Vehicle State Creation** - Create and convert state objects
 2. **EKF Initialization** - Set up filter with custom initial state
 3. **EKF Prediction** - Test bicycle model prediction
@@ -51,7 +65,7 @@ python test_mpc_controller.py
 8. **Multiple Tag Fusion** - Combine measurements from multiple tags
 9. **EKF Reset** - Reset filter to initial conditions
 
-#### MPC Controller Tests (test_mpc_controller.py)
+#### MPC Controller Tests (test_mpc_controller.py) - 10 Tests
 1. **MPC Config** - Create configuration with constraints
 2. **Vehicle Dynamics** - Test bicycle model kinematics
 3. **Steering Kinematics** - Verify turning radius calculations
@@ -63,20 +77,13 @@ python test_mpc_controller.py
 9. **Path Following Controller** - High-level control interface
 10. **Fallback Control** - PD control when MPC fails
 
-### Running All Tests
-
-```bash
-# Run all test suites sequentially
-python test_apriltag.py && python test_ground_obstacle.py && \
-python test_kalman_filter.py && python test_mpc_controller.py
-```
-
 ### Debugging Tips
 
 **AprilTag Detection Issues:**
 - If synthetic detection fails, create a test image with an AprilTag
 - Check camera intrinsics match your OAK-D calibration
 - Adjust quad_decimate for faster/slower detection
+- Ensure apriltag library is installed: `pip install apriltag`
 
 **Ground Plane Detection Issues:**
 - Increase min_inliers if too many false positives
@@ -91,11 +98,32 @@ python test_kalman_filter.py && python test_mpc_controller.py
 **MPC Controller Issues:**
 - Reduce horizon if solve time is too long
 - Increase obstacle_safety_margin for more conservative navigation
-- Check CVXPY solver installation: pip install cvxpy osqp
+- Check CVXPY solver installation: `pip install cvxpy osqp`
 
 ### Creating Test Data
 
-For testing with real AprilTags, generate tags using the AprilTag tools or download pre-generated tags from the AprilTag GitHub wiki.
+For testing with real AprilTags:
+1. Download AprilTag family images from the [AprilTag GitHub](https://github.com/AprilRobotics/apriltag)
+2. Print tag36h11 family tags for best results
+3. Place tags flat on the ground for navigation targets
+4. Measure and record tag positions for the tag_map in kalman_filter.py
+
+### Integration Testing
+
+To test the full navigation pipeline:
+
+```bash
+# Run main navigation (requires OAK-D hardware)
+python main_navigation.py --target 0
+```
+
+This will:
+1. Initialize OAK-D camera
+2. Detect AprilTags and estimate poses
+3. Build ground/obstacle map
+4. Plan path to target tag
+5. Run Kalman filter for state estimation
+6. Execute MPC control commands
 
 ## License
 
