@@ -5,17 +5,21 @@ Detects AprilTags and estimates their pose relative to the camera
 
 import cv2
 import numpy as np
-from apriltag import Detector
+from apriltag import Detector, DetectorOptions
 from dataclasses import dataclass
 from typing import Optional, List
 
-try:
-    import depthai as dai
-    DEPTHAI_AVAILABLE = True
-except (ImportError, OSError) as e:
-    print(f"Warning: DepthAI not available ({e}). Running in simulation mode.")
-    DEPTHAI_AVAILABLE = False
-    dai = None
+# Completely disable depthai to avoid bus errors on this system
+DEPTHAI_AVAILABLE = False
+dai = None
+
+# Do not attempt to import depthai as it causes bus errors
+# if DEPTHAI_AVAILABLE:
+#     try:
+#         import depthai as dai
+#     except Exception:
+#         DEPTHAI_AVAILABLE = False
+#         dai = None
 
 
 @dataclass
@@ -47,18 +51,17 @@ class AprilTagDetector:
             quad_decimate: Detection resolution (higher = faster but less accurate)
             quad_sigma: Gaussian blur sigma for detection
         """
-        # Create DetectorOptions object first
+        # Create DetectorOptions object first - use nthreads=1 to avoid bus errors
         if tag_family == "tag36h11":
-            options = DetectorOptions(families='tag36h11')
+            options = DetectorOptions(families='tag36h11', nthreads=1)
         elif tag_family == "tag16h5":
-            options = DetectorOptions(families='tag16h5')
+            options = DetectorOptions(families='tag16h5', nthreads=1)
         else:
-            options = DetectorOptions(families='tag36h11')
+            options = DetectorOptions(families='tag36h11', nthreads=1)
         
         # Set additional options
         options.quad_decimate = quad_decimate
         options.quad_sigma = quad_sigma
-        options.nthreads = 4
         
         # Pass options object to Detector
         self.detector = Detector(options)

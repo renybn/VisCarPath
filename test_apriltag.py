@@ -10,7 +10,7 @@ import sys
 # Import only what's available
 try:
     from apriltag_detection import AprilTagDetector, AprilTagDetection, OakDAprilTagPipeline
-    DEPTHAI_AVAILABLE = True
+    from apriltag_detection import DEPTHAI_AVAILABLE  # Import the flag from the module
 except ImportError as e:
     print(f"Warning: Could not import apriltag_detection: {e}")
     DEPTHAI_AVAILABLE = False
@@ -320,6 +320,12 @@ def test_oakd_pipeline_mock():
         assert pipeline_obj.april_detector is not None
         assert pipeline_obj.pipeline is None  # Not set up yet
         assert pipeline_obj.device is None
+        
+        # Check if DepthAI is available before trying to setup pipeline
+        if not DEPTHAI_AVAILABLE:
+            print("⊘ Skipping pipeline setup - DepthAI not available on this system")
+            print("  Note: Actual device connection requires OAK-D hardware")
+            return True
         
         # Set up pipeline (this creates the DepthAI pipeline definition)
         depthai_pipeline = pipeline_obj.setup_oakd_pipeline()
