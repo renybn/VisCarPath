@@ -125,13 +125,18 @@ class MPController:
         Linearize dynamics around nominal trajectory
         
         Args:
-            state_nominal: Nominal state
+            state_nominal: Nominal state [x, y, theta, v] or [x, y, theta, v, delta]
             control_nominal: Nominal control
             
         Returns:
             A, B matrices for linearized system: x_{k+1} = A*x_k + B*u_k
         """
-        x, y, theta, v, delta = state_nominal
+        # Handle both 4-state and 5-state models
+        if len(state_nominal) == 5:
+            x, y, theta, v, delta = state_nominal
+        else:
+            x, y, theta, v = state_nominal
+            delta = 0.0
         dt = self.config.dt
         L = self.dynamics.L
         
