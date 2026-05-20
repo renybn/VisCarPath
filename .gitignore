@@ -1,6 +1,39 @@
-(test_apriltag.py, test_ground_obstacle.py, test_kalman_filter.py, test_mpc_controller.py are test files, but they are python source code files(.py), according to rule 7, we should not ignore source code files unless they are clearly generated or sensitive, and rule 6 says if only source/config files and no build artifacts, output empty. These are source code files.)
-(All the added/modified files in the change list are source code files (.py, .md) and there are no build artifacts, dependencies, or temp files mentioned in the change list.)
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
-```python
+# Dependencies
+.venv/
+venv/
+env/
+.env
+.env.local
+.env.*
 
+# Logs
+*.log
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+build/
+dist/
+*.egg-info/
 ```

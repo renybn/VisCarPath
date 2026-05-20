@@ -8,7 +8,14 @@ import numpy as np
 from apriltag import Detector
 from dataclasses import dataclass
 from typing import Optional, List
-import depthai as dai
+
+try:
+    import depthai as dai
+    DEPTHAI_AVAILABLE = True
+except (ImportError, OSError) as e:
+    print(f"Warning: DepthAI not available ({e}). Running in simulation mode.")
+    DEPTHAI_AVAILABLE = False
+    dai = None
 
 
 @dataclass
@@ -40,12 +47,21 @@ class AprilTagDetector:
             quad_decimate: Detection resolution (higher = faster but less accurate)
             quad_sigma: Gaussian blur sigma for detection
         """
-        self.detector = Detector(
-            families=tag_family,
-            quad_decimate=quad_decimate,
-            quad_sigma=quad_sigma,
-            nthreads=4
-        )
+        # Create DetectorOptions object first
+        if tag_family == "tag36h11":
+            options = DetectorOptions(families='tag36h11')
+        elif tag_family == "tag16h5":
+            options = DetectorOptions(families='tag16h5')
+        else:
+            options = DetectorOptions(families='tag36h11')
+        
+        # Set additional options
+        options.quad_decimate = quad_decimate
+        options.quad_sigma = quad_sigma
+        options.nthreads = 4
+        
+        # Pass options object to Detector
+        self.detector = Detector(options)
         self.tag_family = tag_family
         
         # Camera intrinsics (will be updated from OAK-D)
