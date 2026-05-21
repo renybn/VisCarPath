@@ -1,1 +1,20 @@
-Nothing should be ignored based on the provided file changes. The only modified file is README.md, which is a source/config file and should not be added to .gitignore.
+# Python Virtual Environment (THIS IS THE MAIN CULPRIT)
+venv/
+env/
+.venv/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C/C++ build artifacts (From the failed apriltag install)
+build/
+dist/
+*.egg-info/
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
