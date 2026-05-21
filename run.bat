@@ -1,12 +1,12 @@
 @echo off
 echo ========================================
-echo  🚗 VisCarPath Navigation Launcher
+echo  VisCarPath Navigation Launcher
 echo ========================================
-echo.
+echo
 
 REM 1. Check/Create venv if missing
 if not exist "venv\Scripts\activate.bat" (
-    echo 📦 First run detected. Creating virtual environment...
+    echo First run detected. Creating virtual environment...
     python -m venv venv
 )
 
@@ -19,9 +19,9 @@ echo 📥 Installing/Updating dependencies from requirements.txt...
 pip install -r requirements.txt
 
 echo.
-echo 🟢 Starting Autonomous Navigation...
+echo Starting Autonomous Navigation...
 echo ========================================
 python main_navigation.py --target 0
 echo.
-echo 🔴 Navigation stopped.
+echo Navigation stopped.
 pause
