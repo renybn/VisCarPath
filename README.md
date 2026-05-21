@@ -1,4 +1,32 @@
 
+## Installation
+
+### Quick Install (One Command)
+
+Copy and paste this command to install all required dependencies:
+
+```bash
+pip install opencv-python>=4.5.0 apriltag>=3.0.0 depthai<3.0.0 numpy>=1.20.0 scipy>=1.7.0 cvxpy>=1.0.0 osqp>=0.6.0
+```
+
+**Important Notes:**
+- **DepthAI**: Pinned to `<3.0.0` to avoid breaking API changes in v3.0
+- **OpenCV Variants**: 
+  - Use `opencv-python>=4.5.0` for local execution (with GUI/display support via `cv2.imshow()`)
+  - For cloud/server environments (GitHub Codespaces, Docker), replace with `opencv-python-headless>=4.5.0` to prevent `libGL.so.1` errors
+- **Optional Solvers**: `osqp` is recommended for faster MPC optimization
+
+### Alternative: Install from requirements.txt
+
+```bash
+# For local execution (default - includes opencv-python with GUI support)
+pip install -r requirements.txt
+
+# For cloud/server execution (edit requirements.txt first to use opencv-python-headless)
+```
+
+---
+
 ## Testing and Debugging
 
 The system includes comprehensive test suites for each module. All tests currently pass (34/34 total).
