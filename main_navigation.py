@@ -53,6 +53,10 @@ class AutonomousNavigator:
         self.fps = 0
         self.last_frame_time = time.time()
         self.frame_count = 0
+        
+        from imu_integration import ThreadedIMU
+        self.imu = ThreadedIMU(use_rotation_vector=True)
+
 
     def set_target_tag(self, tag_id: int):
         self.target_tag_id = tag_id
@@ -63,6 +67,8 @@ class AutonomousNavigator:
 
     def start(self):
         self.oak_pipeline.start()
+        if self.oak_pipeline.device is not None:
+            self.imu.start(self.oak_pipeline.device)
         ratio = 480 / 1080
         fx = self.oak_pipeline.april_detector.fx * ratio
         fy = self.oak_pipeline.april_detector.fy * ratio
@@ -75,6 +81,8 @@ class AutonomousNavigator:
         if self.oak_pipeline.device:
             self.oak_pipeline.stop()
         self.navigation_state = NavigationState.IDLE
+        self.imu.stop()
+
 
     def process_frame(self) -> Optional[NavigationCommand]:
         rgb_frame, depth_frame, _ = self.oak_pipeline.get_frame_data()
@@ -115,7 +123,16 @@ class AutonomousNavigator:
         if static_tags:
             self.tag_fusion.update_ekf_with_tags(static_tags)
             
-        self.ekf.predict(dt=0.1, control_input=(self.current_command.acceleration, self.current_command.steering_rate))
+        imu_state = self.imu.get_state()
+        imu_yaw_rate = imu_state[1]  # rad/s from gyroscope/fusion
+        accel_cmd = self.current_command.acceleration
+
+        # Predict with measured yaw rate, not commanded steering
+        self.ekf.predict(
+            dt=0.1,
+            control_input=(accel_cmd, imu_yaw_rate)
+        )
+        
         current_state = self.ekf.get_state()
         
         # 5. REACTIVE PATH PLANNING (Camera-frame)

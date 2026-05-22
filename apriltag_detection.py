@@ -249,6 +249,11 @@ class OakDAprilTagPipeline:
         cam_rgb.preview.link(xout_rgb.input)
         stereo.depth.link(xout_depth.input)
         
+        # Add IMU node (USB 2.0 safe batching configured internally)
+        from imu_integration import ThreadedIMU
+        self.use_rotation_vector = True  # Set False if BMI270
+        ThreadedIMU.create_imu_node(self.pipeline, self.use_rotation_vector)
+        
         return self.pipeline
     
     def start(self):

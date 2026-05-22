@@ -374,7 +374,7 @@ class PathPlanner:
         self.min_clearance = min_clearance
         self.max_lookahead = max_lookahead
         
-        # High-resolution candidate angles: -60 to +60 degrees (1-degree steps)
+        # High-resolution candidate angles: -40 to +40 degrees (1-degree steps)
         self.thetas = np.deg2rad(np.arange(-40, 41, 1))
         
         # Cost function weights
