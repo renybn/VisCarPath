@@ -82,8 +82,11 @@ class AprilTagDetector:
         detections = []
         h, w = gray_frame.shape[:2]
         
+        print(f"[APRILTAG] Running detection on {h}x{w} frame...")
+        
         # 1. Run pupil_apriltags detector
         results = self.detector.detect(gray_frame)
+        print(f"[APRILTAG]   - Raw detector found {len(results)} candidate(s)")
         
         # Remove the hardcoded fx, fy, cx, cy block.
         # Instead, use the intrinsics stored in the class instance from the setup phase:
@@ -133,6 +136,7 @@ class AprilTagDetector:
                     confidence=result.decision_margin
                 ))
                     
+        print(f"[APRILTAG]   - Successfully localized {len(detections)} tag(s) via PnP\n")
         return detections
     
     def filter_ground_tags(self, detections: List[AprilTagDetection],

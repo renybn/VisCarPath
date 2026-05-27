@@ -33,8 +33,10 @@ class PathFollowingController:
         Compute normalized acceleration and steering commands.
         Returns: (accel_cmd [-1, 1], steer_cmd [-1, 1])
         """
+        print("[MPC] Computing control...")
         # Only velocity is needed from the EKF for speed control
         v = self.current_state[3]
+        print(f"[MPC]   - Current state: v={v:.2f}m/s")
         
         # 1. OBSTACLE BRAKING FACTOR
         min_dist = float('inf')
@@ -44,12 +46,16 @@ class PathFollowingController:
                 
         speed_scale = 1.0
         if min_dist < self.config.obstacle_safety_margin:
+            print(f"[MPC]   - OBSTACLE TOO CLOSE ({min_dist:.2f}m < {self.config.obstacle_safety_margin}m): HARD BRAKE")
             return -1.0, 0.0  # Hard brake, normalized
         elif min_dist < self.config.obstacle_slowdown_dist:
             # Proportional slowing between safety margin and slowdown distance
             speed_scale = (min_dist - self.config.obstacle_safety_margin) / \
                           (self.config.obstacle_slowdown_dist - self.config.obstacle_safety_margin)
             speed_scale = max(0.0, speed_scale)
+            print(f"[MPC]   - Obstacle detected at {min_dist:.2f}m, reducing speed (scale={speed_scale:.2f})")
+        else:
+            print(f"[MPC]   - No obstacle threat (closest={min_dist:.2f}m), full speed allowed")
             
         # 2. PURE PURSUIT (Camera Frame)
         # Camera frame convention (OpenCV): X=lateral(right), Y=vertical(down), Z=forward
@@ -67,27 +73,35 @@ class PathFollowingController:
                 
         if target_fwd is None:
             # No valid waypoint: brake smoothly to a stop
+            print("[MPC]   - No valid waypoint found, braking to stop")
             brake_cmd = np.clip(-v / (self.config.max_acceleration * self.config.dt), -1.0, 0.0)
             return brake_cmd, 0.0
+        
+        print(f"[MPC]   - Target waypoint: fwd={target_fwd:.2f}m, lat={target_lat:.2f}m")
             
         # 3. HEADING ERROR & STEERING CONTROL
         # In camera frame, car is at (0,0) facing +Z. Target angle is atan2(lateral, forward).
         alpha = np.arctan2(target_lat, target_fwd)
+        print(f"[MPC]   - Heading error (alpha): {np.degrees(alpha):.1f}°")
         
         curvature = (2.0 * np.sin(alpha)) / self.config.lookahead_dist
         target_steering = np.clip(curvature * self.config.wheelbase, 
                                   -self.config.max_steer_angle, 
                                   self.config.max_steer_angle)
+        print(f"[MPC]   - Target steering: {np.degrees(target_steering):.1f}° (curvature={curvature:.2f})")
         
         # 4. SPEED CONTROL
         dist_to_target = np.hypot(target_fwd, target_lat)
         target_v = np.clip(dist_to_target * 1.5, 0.0, self.config.max_velocity) * speed_scale
+        print(f"[MPC]   - Speed control: target_v={target_v:.2f}m/s (dist={dist_to_target:.2f}m, scale={speed_scale:.2f})")
         
         v_error = target_v - v
         accel = np.clip(1.2 * v_error, -self.config.max_acceleration, self.config.max_acceleration)
+        print(f"[MPC]   - Acceleration: {accel:.3f}m/s² (v_error={v_error:.2f}m/s)")
         
         # 5. NORMALIZE OUTPUTS TO [-1, 1]
         accel_cmd = accel / self.config.max_acceleration
         steer_cmd = target_steering / self.config.max_steer_angle
+        print(f"[MPC]   - Normalized commands: accel={accel_cmd:.3f}, steer={steer_cmd:.3f}")
         
         return np.clip(accel_cmd, -1.0, 1.0), np.clip(steer_cmd, -1.0, 1.0)

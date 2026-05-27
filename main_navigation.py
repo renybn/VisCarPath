@@ -32,20 +32,27 @@ class NavigationCommand:
 
 class AutonomousNavigator:
     def __init__(self, robot_width: float = 0.5, target_tag_id: Optional[int] = None):
+        print("[NAVIGATOR] Initializing AutonomousNavigator...")
         self.oak_pipeline = OakDAprilTagPipeline()
+        print("[NAVIGATOR]   - OAK-D AprilTag pipeline created")
         self.ground_pipeline = GroundAndObstaclePipeline(robot_width=robot_width)
+        print(f"[NAVIGATOR]   - Ground/obstacle pipeline created (robot_width={robot_width}m)")
         
         initial_state = VehicleState(x=0, y=0, theta=0, v=0, omega=0)
         self.ekf = ExtendedKalmanFilter(initial_state=initial_state, process_noise=0.1, measurement_noise=0.5)
+        print("[NAVIGATOR]   - Extended Kalman Filter initialized at origin (0,0,0)")
         self.tag_fusion = TagMeasurementFusion(self.ekf)
+        print("[NAVIGATOR]   - Tag measurement fusion module ready")
         
         ctrl_config = ControllerConfig(dt=0.1, max_velocity=1.5, max_acceleration=0.8)
         self.controller = PathFollowingController(ctrl_config)
+        print("[NAVIGATOR]   - Path following controller configured")
         
         self.navigation_state = NavigationState.IDLE
         self.current_command = NavigationCommand(0, 0, 0, time.time())
         self.target_tag_id = target_tag_id
         self.tag_map: Dict[int, tuple] = {}
+        print(f"[NAVIGATOR]   - Navigation state: IDLE, Target tag: {target_tag_id}")
         
         self.last_rgb = None
         self.last_depth = None
@@ -64,6 +71,7 @@ class AutonomousNavigator:
         self.tag_fusion.add_tag_to_map(tag_id, x, y, theta)
 
     def start(self):
+        print("[NAVIGATOR] Starting navigation system...")
         self.oak_pipeline.start()
         ratio = 480 / 1080
         fx = self.oak_pipeline.april_detector.fx
@@ -71,34 +79,53 @@ class AutonomousNavigator:
         cx = self.oak_pipeline.april_detector.cx
         cy = self.oak_pipeline.april_detector.cy
         self.ground_pipeline.set_camera_intrinsics(fx, fy, cx, cy)
+        print(f"[NAVIGATOR]   - Camera intrinsics set for ground pipeline: fx={fx:.1f}, fy={fy:.1f}")
         self.navigation_state = NavigationState.DETECTING_TAGS
+        print(f"[NAVIGATOR]   - Navigation state changed to: DETECTING_TAGS")
+        print("[NAVIGATOR] System started successfully!\n")
 
     def stop(self):
+        print("[NAVIGATOR] Stopping navigation system...")
         if self.oak_pipeline.device:
             self.oak_pipeline.stop()
+            print("[NAVIGATOR]   - OAK-D pipeline stopped")
         self.navigation_state = NavigationState.IDLE
 
 
     def process_frame(self) -> Optional[NavigationCommand]:
+        """Process a single frame and return navigation command"""
+        # Get sensor data
         rgb_frame, depth_frame, _ = self.oak_pipeline.get_frame_data()
         if rgb_frame is None or depth_frame is None:
+            print("[PROCESS] Skipping frame - no RGB/Depth data from OAK-D")
             return None
-            
+        
         h, w = rgb_frame.shape[:2]
+        print(f"[PROCESS] Processing frame {h}x{w}...")
+        
+        # Detect AprilTags
         tag_detections = self.oak_pipeline.detect_tags_in_frame(rgb_frame, depth_frame)
         self.last_rgb, self.last_depth, self.last_tags = rgb_frame, depth_frame, tag_detections
+        print(f"[PROCESS]   - Detected {len(tag_detections)} AprilTag(s)")
         
         # 1. TARGET SELECTION
         target_tag = None
         if self.target_tag_id is not None:
             target_tag = next((t for t in tag_detections if t.tag_id == self.target_tag_id), None)
+            if target_tag:
+                print(f"[PROCESS]   - Target tag {self.target_tag_id} found at {target_tag.distance:.2f}m")
+            else:
+                print(f"[PROCESS]   - Target tag {self.target_tag_id} NOT detected")
         elif tag_detections:
             target_tag = min(tag_detections, key=lambda t: t.distance)
             self.target_tag_id = target_tag.tag_id
+            print(f"[PROCESS]   - No target set, selecting closest tag: ID={target_tag.tag_id} at {target_tag.distance:.2f}m")
             
         # 2. STATIC LANDMARK FILTERING
         # Exclude target tag from mapping and EKF to prevent moving target from corrupting localization
         static_tags = [t for t in tag_detections if t.tag_id != self.target_tag_id]
+        if static_tags:
+            print(f"[PROCESS]   - Found {len(static_tags)} static tag(s) for localization")
         
         for tag in static_tags:
             if tag.tag_id not in self.tag_map:
@@ -108,15 +135,30 @@ class AutonomousNavigator:
                 tag_world_x = state.x + cam_z * np.cos(state.theta) - cam_x * np.sin(state.theta)
                 tag_world_y = state.y + cam_z * np.sin(state.theta) + cam_x * np.cos(state.theta)
                 self.add_known_tag(tag.tag_id, tag_world_x, tag_world_y)
-                
+                print(f"[PROCESS]     - Mapped new static tag {tag.tag_id} at world position ({tag_world_x:.2f}, {tag_world_y:.2f})")
+            
         # 3. PERCEPTION (Ground & Obstacles)
         frame_data = self.ground_pipeline.process_frame(depth_frame, tag_detections, (h, w))
         ground_plane = frame_data['ground_plane']
         obstacles = frame_data['obstacles']
         
+        if ground_plane:
+            print(f"[PROCESS]   - Ground plane detected: confidence={ground_plane.confidence:.2f}, {ground_plane.inliers} inliers")
+        else:
+            print("[PROCESS]   - WARNING: No ground plane detected")
+        
+        if obstacles:
+            print(f"[PROCESS]   - Detected {len(obstacles)} obstacle(s), closest at {min(o.distance for o in obstacles):.2f}m")
+        else:
+            print("[PROCESS]   - No obstacles detected")
+        
         # 4. STATE ESTIMATION (EKF)
         if static_tags:
-            self.tag_fusion.update_ekf_with_tags(static_tags)
+            fusion_success = self.tag_fusion.update_ekf_with_tags(static_tags)
+            if fusion_success:
+                print("[PROCESS]   - EKF updated with static tag measurements")
+            else:
+                print("[PROCESS]   - EKF update skipped - no valid tag measurements")
             
         accel_cmd = self.current_command.acceleration
         steer_cmd = self.current_command.steering_rate
@@ -128,6 +170,7 @@ class AutonomousNavigator:
         )
         
         current_state = self.ekf.get_state()
+        print(f"[PROCESS]   - EKF prediction complete: pos=({current_state.x:.2f}, {current_state.y:.2f}), heading={np.degrees(current_state.theta):.1f}°, vel={current_state.v:.2f}m/s")
         
         # 5. REACTIVE PATH PLANNING (Camera-frame)
         path = None
@@ -136,8 +179,17 @@ class AutonomousNavigator:
                 target_tag, obstacles, ground_plane,
                 self.ground_pipeline.camera_intrinsics, (h, w)
             )
+            if path:
+                print(f"[PROCESS]   - Path planned: {len(path)} segment(s), cost={path[0].cost:.2f}")
+            else:
+                print("[PROCESS]   - Path planning failed - too close to target or invalid geometry")
+        elif not target_tag:
+            print("[PROCESS]   - Path planning skipped - no target tag")
+        elif not ground_plane:
+            print("[PROCESS]   - Path planning skipped - no ground plane")
             
         # 6. STATE MACHINE
+        old_state = self.navigation_state
         if target_tag is None:
             self.navigation_state = NavigationState.DETECTING_TAGS
         elif target_tag.distance < 0.5:
@@ -147,6 +199,9 @@ class AutonomousNavigator:
             self.navigation_state = NavigationState.OBSTRUCTED if closest_obs.distance < 1.0 else NavigationState.NAVIGATING
         else:
             self.navigation_state = NavigationState.NAVIGATING
+        
+        if old_state != self.navigation_state:
+            print(f"[PROCESS]   - State transition: {old_state.value} -> {self.navigation_state.value}")
             
         # 7. CONTROL COMPUTATION
         if self.navigation_state == NavigationState.NAVIGATING:
@@ -156,15 +211,20 @@ class AutonomousNavigator:
             if path:
                 try:
                     accel, steer = self.controller.compute_control(path, obstacles)
-                except Exception:
+                    print(f"[PROCESS]   - Control computed: accel={accel:.3f}, steer={steer:.3f}")
+                except Exception as e:
+                    print(f"[PROCESS]   - Control computation FAILED: {e}")
                     accel, steer = 0.0, 0.0
                 self.current_command = NavigationCommand(accel, steer, current_state.v + accel * 0.1, time.time())
             else:
+                print("[PROCESS]   - No path available, commanding stop")
                 self.current_command = NavigationCommand(0, 0, 0, time.time())
         else:
+            print(f"[PROCESS]   - Not in NAVIGATING state ({self.navigation_state.value}), commanding stop")
             self.current_command = NavigationCommand(0, 0, 0, time.time())
             
         self._update_fps()
+        print(f"[PROCESS] Frame processing complete. FPS: {self.fps}\n")
         return self.current_command
 
     def _update_fps(self):

@@ -519,7 +519,9 @@ class GroundAndObstaclePipeline:
             if self.camera_intrinsics is None:
                 raise ValueError("Camera intrinsics not set")
             
+            print("[GROUND] Processing ground/obstacle perception...")
             tag_mask = self.create_tag_mask(image_shape, tag_detections)
+            print(f"[GROUND]   - Created tag mask ({np.sum(tag_mask > 0)} pixels masked)")
             
             ground_plane = self.ground_detector.detect_ground_plane(
                 depth_map, self.camera_intrinsics, tag_mask
@@ -530,12 +532,16 @@ class GroundAndObstaclePipeline:
                 obstacles = self.obstacle_detector.detect_obstacles(
                     depth_map, ground_plane, self.camera_intrinsics, tag_mask
                 )
+            else:
+                print("[GROUND]   - Skipping obstacle detection (no ground plane)")
             
-            return {
+            result = {
                 'ground_plane': ground_plane,
                 'obstacles': obstacles,
                 'tag_mask': tag_mask
             }
+            print(f"[GROUND] Perception complete: {len(obstacles)} obstacles\n")
+            return result
 
 
 if __name__ == "__main__":
