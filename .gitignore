@@ -1,4 +1,42 @@
-```
+```markdown
+# Debug frames (temporary files)
+debug_frame_*.png
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Build directories
+dist/
+build/
+*.egg-info/
+
+# Coverage reports
+.coverage
+coverage/
+htmlcov/
+
+# IDE specific
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
 ```

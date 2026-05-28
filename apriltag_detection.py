@@ -192,7 +192,7 @@ class OakDAprilTagPipeline:
         self.q_depth = None
         
     def setup_oakd_pipeline(self):
-        "Configure OAK-D Lite stereo depth + RGB pipeline"
+        "Configure OAK-D Lite stereo depth + RGB pipeline with optimized settings"
         self.pipeline = dai.Pipeline()
         
         # 1. Define sources (RGB + 2 Mono cameras for depth)
@@ -206,9 +206,10 @@ class OakDAprilTagPipeline:
         cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
 
         # CRITICAL: Lock autofocus for stable PnP calculations
-        # 130 on the 0-255 scale roughly locks focus between 1m and infinity for the OAK-D AF module
+        # Use CONTINUOUS_VIDEO for dynamic focusing, or MANUAL for fixed distance
         cam_rgb.initialControl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.CONTINUOUS_VIDEO)
-        # cam_rgb.initialControl.setManualFocus(130) 
+        # For fixed-distance applications (e.g., always looking at ground 0.5-2m away), use manual focus:
+        # cam_rgb.initialControl.setManualFocus(130)  # ~1m to infinity
         cam_rgb.setInterleaved(False)
         cam_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.RGB)
         cam_rgb.setFps(15)
@@ -220,8 +221,8 @@ class OakDAprilTagPipeline:
         mono_right.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
         mono_right.setBoardSocket(dai.CameraBoardSocket.RIGHT)
         
-        # 4. Stereo depth configuration
-        stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.DEFAULT)
+        # 4. Stereo depth configuration - OPTIMIZED for accuracy
+        stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_ACCURACY)
         stereo.setOutputSize(640, 480)
         stereo.setRectifyEdgeFillColor(0)
         
@@ -229,9 +230,11 @@ class OakDAprilTagPipeline:
         stereo.setDepthAlign(dai.CameraBoardSocket.RGB)
         stereo.setLeftRightCheck(True)
         
-        # Disable heavy features to save USB bandwidth
-        stereo.setExtendedDisparity(False)
-        stereo.setSubpixel(False)
+        # Enhanced disparity for better close-range accuracy
+        stereo.setExtendedDisparity(True)
+        stereo.setSubpixel(False)  # Disable subpixel for lower noise (trade-off: less precision)
+        stereo.setConfidenceThreshold(220)  # Higher threshold = fewer false positives
+        
         # 5. Link Mono cameras to Stereo Depth
         mono_left.out.link(stereo.left)
         mono_right.out.link(stereo.right)
