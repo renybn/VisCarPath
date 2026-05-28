@@ -3,7 +3,7 @@ Comprehensive OAK-D Lite Debugging Suite
 Focus: Depth map validation, AprilTag detection at distance, spatial obstacle detection
 Provides real-time visualization of depth confidence, point clouds, and 3D coordinates
 """
-
+import os
 import cv2
 import numpy as np
 import depthai as dai
@@ -423,13 +423,17 @@ def main():
     tag_tester = AprilTagDistanceTester()
     obstacle_detector = SpatialObstacleDetector()
     
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    images_dir = os.path.join(script_dir, "Images")
+    os.makedirs(images_dir, exist_ok=True)
+
     current_mode = "balanced"
     
     # Start OAK-D device
     print("\nInitializing OAK-D Lite...")
     try:
         pipeline = StereoDepthConfigurator.create_pipeline(current_mode)
-        device = dai.Device(pipeline, usb2Mode=False)
+        device = dai.Device(pipeline, usb2Mode=True)
         print(f"✅ Connected | MxId: {device.getMxId()}")
         
         # Get calibration intrinsics
@@ -535,8 +539,9 @@ def main():
                     debug_view = create_debug_visualization(
                         rgb_display, filtered_viz, tag_detections, obstacles, depth_stats, current_mode
                     )
-                    cv2.imwrite(f"/workspace/debug_frame_{frame_count:04d}.png", debug_view)
-                    print(f"\n📸 Saved debug image: debug_frame_{frame_count:04d}.png")
+                    save_path = os.path.join(images_dir, f"debug_frame_{frame_count:04d}.png")
+                    cv2.imwrite(save_path, debug_view)
+                    print(f"\n📸 Saved debug image: {save_path}")
                 except Exception as e:
                     print(f"Warning: Could not save debug image: {e}")
             
