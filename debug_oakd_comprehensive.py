@@ -583,7 +583,7 @@ class SpatialObstacleDetector:
             z,
         ])
 
-        heights_mm              = np.abs(pts @ normal + plane_distance) * 1000.0
+        heights_mm              = np.maximum(pts @ normal + plane_distance, 0) * 1000.0
         height_map_mm           = np.zeros((h, w), dtype=np.float32)
         height_map_mm[y_idx, x_idx] = heights_mm
 
@@ -784,7 +784,7 @@ class RGBDepthFusion:
             (y_idx - cy) * z / fy,
             z,
         ])
-        heights    = np.abs(pts @ ground_normal + plane_d) * 1000.0
+        heights    = np.maximum(pts @ ground_normal + plane_d, 0) * 1000.0
         floor_mask = heights < 40
         fy_idx, fx_idx = y_idx[floor_mask], x_idx[floor_mask]
         if len(fy_idx) < 50:
