@@ -1,20 +1,11 @@
-# Python Virtual Environment (THIS IS THE MAIN CULPRIT)
+.venv/
 venv/
 env/
-.venv/
-
-# Python cache and compiled files
 __pycache__/
-*.py[cod]
-*$py.class
-
-# C/C++ build artifacts (From the failed apriltag install)
-build/
-dist/
-*.egg-info/
-
-# IDE and OS files
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+*.pyc
+data/
+logs/
+nav_logs/
+.cache/
+Images/
+wsl_venv/

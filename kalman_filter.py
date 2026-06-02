@@ -137,6 +137,8 @@ class ExtendedKalmanFilter:
         # Update covariance
         self.P = F @ self.P @ F.T + self.Q
         
+        print(f"[EKF] PREDICT: pos=({new_x:.2f}, {new_y:.2f}), θ={np.degrees(new_theta):.1f}°, v={new_v:.2f}m/s, ω={new_omega:.2f}rad/s")
+        
     def update(self, measurement: np.ndarray, 
                H: Optional[np.ndarray] = None):
         """
@@ -163,6 +165,9 @@ class ExtendedKalmanFilter:
         if len(y_innov) > 2:
             y_innov[2] = self._normalize_angle(y_innov[2])
         
+        print(f"[EKF] UPDATE: measurement=({measurement[0]:.2f}, {measurement[1]:.2f}, {np.degrees(measurement[2]):.1f}°)")
+        print(f"[EKF]         innovation=({y_innov[0]:.3f}, {y_innov[1]:.3f}, {np.degrees(y_innov[2]):.2f}°)")
+        
         # Innovation covariance
         S = H @ self.P @ H.T + self.R
         
@@ -178,6 +183,8 @@ class ExtendedKalmanFilter:
         # Update covariance
         I = np.eye(len(self.x))
         self.P = (I - K @ H) @ self.P
+        
+        print(f"[EKF]         corrected pos=({self.x[0]:.2f}, {self.x[1]:.2f}), θ={np.degrees(self.x[2]):.1f}°")
         
     def _normalize_angle(self, angle: float) -> float:
         """Normalize angle to [-pi, pi]"""
@@ -322,14 +329,17 @@ class TagMeasurementFusion:
         Args:
             tag_detections: List of AprilTagDetection objects
         """
+        print(f"[TAG_FUSION] Processing {len(tag_detections)} tag(s) for EKF update...")
         fused_measurement = self.fuse_multiple_tags(tag_detections)
         
         if fused_measurement is not None:
+            print(f"[TAG_FUSION] Fused measurement: ({fused_measurement[0]:.2f}, {fused_measurement[1]:.2f}, {np.degrees(fused_measurement[2]):.1f}°)")
             self.ekf.update(fused_measurement)
-            
+            print("[TAG_FUSION] EKF update successful\n")
             return True
-        
-        return False
+        else:
+            print("[TAG_FUSION] No valid tag measurements to fuse - skipping EKF update\n")
+            return False
 
 
 if __name__ == "__main__":

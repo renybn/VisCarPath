@@ -19,3 +19,6 @@ depthai<3.0.0
 # Scientific computing & linear algebra
 numpy>=1.20.0
 scipy>=1.7.0
+ultralytics>=8.0.0  # For FastSAM integration (if using FastSAM for segmentation)
+torch>=1.10.0  # Required for FastSAM (if using FastSAM for segmentation)
+torchvision>=0.11.0  # Required for FastSAM (if using FastSAM for segmentation)
