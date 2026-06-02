@@ -240,12 +240,12 @@ class ObstacleDetector:
     """
 
     DISTANCE_ZONES = [
-        {'max_m': 1.0, 'height_thresh_mm': 120, 'min_area_px': 150,
-         'merge_dist_px': 30, 'median_h_min': 100},
-        {'max_m': 2.0, 'height_thresh_mm':  80, 'min_area_px': 100,
-         'merge_dist_px': 50, 'median_h_min':  60},
-        {'max_m': 2.5, 'height_thresh_mm':  60, 'min_area_px':  80,
-         'merge_dist_px': 70, 'median_h_min':  40},
+        {'max_m': 1.0, 'height_thresh_mm': 150, 'min_area_px': 400,
+         'merge_dist_px': 30, 'median_h_min': 120},
+        {'max_m': 2.0, 'height_thresh_mm':  120, 'min_area_px': 300,
+         'merge_dist_px': 50, 'median_h_min':  100},
+        {'max_m': 2.5, 'height_thresh_mm':  100, 'min_area_px':  200,
+         'merge_dist_px': 70, 'median_h_min':  80},
     ]
     STEREO_CONF_THRESH = 150
 
@@ -677,6 +677,7 @@ class RGBDepthFusion:
              ground_plane:    GroundPlane,
              K:               np.ndarray,
              height_map_mm:   np.ndarray,
+             tag_mask:       Optional[np.ndarray] = None,
              min_dist:        float = MIN_DISTANCE_M,
              max_dist:        float = MAX_DISTANCE_M,
              ) -> List[Obstacle]:
@@ -687,6 +688,10 @@ class RGBDepthFusion:
         """
         h, w           = depth_m.shape      # depth is already downsampled (e.g. 320×240)
         fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
+
+            # Ensure tag_mask matches the working resolution (h, w)
+        if tag_mask is not None and (tag_mask.shape[0] != h or tag_mask.shape[1] != w):
+            tag_mask = cv2.resize(tag_mask, (w, h), interpolation=cv2.INTER_NEAREST)
 
         # SAM masks are produced at the resolution of the submitted RGB frame
         # (640×400), while depth_m has been downsampled to 320×240.  Resize
@@ -724,6 +729,11 @@ class RGBDepthFusion:
         fused: List[Obstacle] = []
 
         for mask in rgb_masks:
+            if tag_mask is not None:
+                overlap = np.logical_and(mask > 0, tag_mask > 0).sum()
+                mask_area = (mask > 0).sum()
+                if mask_area > 0 and (overlap / mask_area) > 0.1:  # If >10% overlaps, ignore
+                    continue
             if self._is_floor_segment(mask, hsv_frame):
                 continue
 
@@ -919,7 +929,7 @@ class GroundAndObstaclePipeline:
                 pts = np.array(tag.corners, dtype=np.int32).reshape((-1, 1, 2))
                 cv2.fillPoly(mask, [pts], 255)
         if np.any(mask > 0):
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (200, 200))
             mask   = cv2.dilate(mask, kernel, iterations=1)
         return mask
 
@@ -973,7 +983,8 @@ class GroundAndObstaclePipeline:
 
             obstacles = self.fusion.fuse(
                 rgb_bgr, depth_m, depth_obstacles,
-                ground_plane, self.camera_intrinsics, height_map_mm)
+                ground_plane, self.camera_intrinsics, height_map_mm,
+                tag_mask=tag_mask)
 
         return {
             'ground_plane': ground_plane,
