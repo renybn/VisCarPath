@@ -1,1 +1,11 @@
-(empty)
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+data/
+logs/
+nav_logs/
+.cache/
+Images/
+wsl_venv/
