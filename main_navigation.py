@@ -25,6 +25,7 @@ from apriltag_detection import AprilTagDetector, AprilTagDetection
 from ground_obstacle_detection import GroundAndObstaclePipeline
 from kalman_filter import ExtendedKalmanFilter, TagMeasurementFusion, VehicleState
 from mpc_controller import PathFollowingController, ControllerConfig
+from vesc_bridge import VESCBridge
 
 # ---------------------------------------------------------------------------
 # Tunable constants
@@ -139,6 +140,7 @@ class AutonomousNavigator:
         self.current_command  = NavigationCommand(0, 0, 0, time.time())
         self.target_tag_id    = target_tag_id
         self.tag_map: Dict[int, tuple] = {}
+        self.vesc: Optional[VESCBridge] = None
 
         # Camera / device handles
         self.device:   Optional[dai.Device] = None
@@ -200,8 +202,11 @@ class AutonomousNavigator:
 
         self.navigation_state = NavigationState.DETECTING_TAGS
         print(f"[NAV] OAK-D ready | fx={fx:.1f} fy={fy:.1f} | mode={PIPELINE_MODE}")
+        self.vesc = VESCBridge(port='/dev/ttyACM0')
 
     def stop(self):
+        if self.vesc:
+            self.vesc.close()
         if self.device is not None:
             self.device.close()
             self.device = None
@@ -431,6 +436,9 @@ class AutonomousNavigator:
             while True:
                 command = self.process_frame()
 
+                if command and self.vesc:
+                    self.vesc.send_command(command.acceleration, command.steering_rate)
+
                 if self.last_rgb is None:
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
@@ -471,6 +479,10 @@ class AutonomousNavigator:
         try:
             while True:
                 command = self.process_frame()
+
+                if command and self.vesc:
+                    self.vesc.send_command(command.acceleration, command.steering_rate)
+
                 if command is None:
                     # FIX: yield CPU when no camera frame is ready.
                     # Busy-spinning starves DepthAI's USB thread and triggers
@@ -513,7 +525,8 @@ class AutonomousNavigator:
             while True:
                 command = self.process_frame()
                 if command is not None:
-                    pass  # Hand off to hardware interface here
+                    if self.vesc:
+                        self.vesc.send_command(command.acceleration, command.steering_rate)
         except KeyboardInterrupt:
             pass
         finally:
